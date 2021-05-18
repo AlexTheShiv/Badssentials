@@ -100,11 +100,11 @@ Citizen.CreateThread(function()
 	end
 end)
 AddEventHandler('onClientMapStart', function()
-	Citizen.Trace("RPRevive: Disabling le autospawn.")
+	--Citizen.Trace("Disabling autospawn.")
 	exports.spawnmanager:spawnPlayer() -- Ensure player spawns into server.
 	Citizen.Wait(2500)
 	exports.spawnmanager:setAutoSpawn(false)
-	Citizen.Trace("RPRevive: Autospawn is disabled.")
+	--Citizen.Trace("Autospawn disabled.")
 end)
 deadCheck = false;
 Citizen.CreateThread(function()
@@ -112,9 +112,9 @@ Citizen.CreateThread(function()
 		Wait(0);
 		local ped = GetPlayerPed(-1);
 		if IsEntityDead(ped) then 
-			Draw2DText(.5, .3, "~r~You are knocked out or dead...", 1.0, 1);
-			Draw2DText(.5, .4, "~b~You may use ~g~/revive ~b~if you were knocked out", 1.0, 1);
-			Draw2DText(.5, .5, "~b~If you are dead, you must use ~g~/respawn", 1.0, 1);
+			Draw2DText(.5, .89, "~r~You have died.", 0.6, 1);
+			Draw2DText(.5, .93, "~b~To Revive here, type ~g~/revive", 0.5, 1);
+			Draw2DText(.5, .96, "~b~To Respawn, type ~g~/respawn", 0.5, 1);
 		end
 		if IsEntityDead(ped) and not deadCheck then
 			deadCheck = true;
@@ -136,6 +136,15 @@ function revivePed(ped)
     ClearPedBloodDamage(ped)
     deadCheck = false;
 end
+
+function respawnPed(ped, coords)
+	SetEntityCoordsNoOffset(ped, coords.x, coords.y, coords.z, false, false, false, true)
+	NetworkResurrectLocalPlayer(coords.x, coords.y, coords.z, coords.heading, true, false) 
+	SetPlayerInvincible(ped, false) 
+	TriggerEvent('playerSpawned', coords.x, coords.y, coords.z, coords.heading)
+	ClearPedBloodDamage(ped)
+end
+
 RegisterNetEvent('Badssentials:RevivePlayer')
 AddEventHandler('Badssentials:RevivePlayer', function()
 	local ped = GetPlayerPed(-1);
@@ -143,14 +152,43 @@ AddEventHandler('Badssentials:RevivePlayer', function()
 		revivePed(ped);
 	end
 end)
-RegisterNetEvent('Badssentials:RespawnPlayer')
-AddEventHandler('Badssentials:RespawnPlayer', function()
-	local ped = GetPlayerPed(-1);
-	if IsEntityDead(ped) then 
-		revivePed(ped);
-		SetEntityCoords(ped, 1828.43, 3693.01, 34.22, false, false, false, false);
-		SetEntityCoords(entity, xPos, yPos, zPos, xAxis, yAxis, zAxis, clearArea)
+
+Citizen.CreateThread(function()
+	local respawnCount = 0
+	local spawnPoints = {}
+	local playerIndex = NetworkGetPlayerIndex(-1) or 0
+	math.randomseed(playerIndex)
+
+	function createSpawnPoint(x1, x2, y1, y2, z, heading)
+		local xValue = math.random(x1,x2) + 0.0001
+		local yValue = math.random(y1,y2) + 0.0001
+
+		local newObject = {
+			x = xValue,
+			y = yValue,
+			z = z + 0.0001,
+			heading = heading + 0.0001
+		}
+		table.insert(spawnPoints,newObject)
 	end
+
+	createSpawnPoint(-448, -448, -340, -329, 35.5, 0) -- Mount Zonah
+	createSpawnPoint(372, 375, -596, -594, 30.0, 0)   -- Pillbox Hill
+	createSpawnPoint(335, 340, -1400, -1390, 34.0, 0) -- Central Los Santos
+	createSpawnPoint(1850, 1854, 3700, 3704, 35.0, 0) -- Sandy Shores
+	createSpawnPoint(-247, -245, 6328, 6332, 33.5, 0) -- Paleto
+
+	RegisterNetEvent('Badssentials:RespawnPlayer')
+	AddEventHandler('Badssentials:RespawnPlayer', function()
+		local ped = GetPlayerPed(-1);
+		local coords = spawnPoints[math.random(1,#spawnPoints)];
+		if IsEntityDead(ped) then 
+			respawnPed(ped, coords)
+			math.randomseed(playerIndex * respawnCount)
+			--SetEntityCoords(ped, 1828.43, 3693.01, 34.22, false, false, false, false);
+			--SetEntityCoords(entity, xPos, yPos, zPos, xAxis, yAxis, zAxis, clearArea)
+		end
+	end)
 end)
 tickDegree = 0;
 local nearest = nil;
